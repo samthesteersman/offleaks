@@ -1,6 +1,6 @@
 ---
 title: "Little analysis"
-output: html_document
+output: pdf_document
 ---
 
 This project for Social and Economic Networks course uses Offshore Leaks Database found here <https://offshoreleaks.icij.org/>.
@@ -20,7 +20,7 @@ library(dplyr)
 library(ggplot2)
 ```
 
-## Year development
+## Yearly counts development
 
 One would like to know how many accounts have been opened throughout years.
 
@@ -49,6 +49,7 @@ ggplot(data = ent) + geom_bar(aes(x = incorporation_year)) + theme_bw()
 # ggplot(data = ent) + geom_line(aes(x = incorporation_year), stat = 'count') + theme_bw()
 ```
 
+<<<<<<< HEAD
 Number of firms related to different Central-Eastern European countries.
 
 ```{r, echo = FALSE}
@@ -78,3 +79,58 @@ ggplot(data = central_europe[!central_europe$Latvia,]) + geom_line(aes(x = incor
 ```
 
 
+=======
+## Nodes decomposed
+
+The main connections file provides `r nrow(edges)` links/edges. At both ends one can find different players.
+
+### Origin nodes
+
+There are `r length(unique(edges$node_1))` unique origin nodes/vertices.
+
+```{r, echo = FALSE}
+n1e <- sum(unique(edges$node_1) %in% entities$node_id)
+# from all the links, 93572 entities connect to something
+n1a <- sum(unique(edges$node_1) %in% addresses$node_id)
+# 960
+n1i <- sum(unique(edges$node_1) %in% inters$node_id)
+# 23600
+n1o <- sum(unique(edges$node_1) %in% officers$node_id)
+# 345475
+n1 <- n1e + n1a + n1i + n1o
+```
+
+They are distributed among the types in the following manner: 
+
+Entities        |Addresses        |Intermediaries   |Officers         
+----------------|-----------------|-----------------|-----------------
+`r n1e`         |`r n1a`          |`r n1i`          |`r n1o`          
+`r 100*n1e/n1`% |`r 100*n1a/n1`%  |`r 100*n1i/n1`%  |`r 100*n1o/n1`%  
+
+A note. The decomposition does not sum up to the number of unique entries. `r n1` = `r length(unique(edges$node_1))` is `r n1 == length(unique(edges$node_1))`.
+
+### Receiving nodes
+
+Looking at the unique receiving nodes/vertices, one can find that there are `r length(unique(edges$node_2))` of them.
+
+```{r, echo = FALSE}
+n2e <- sum(unique(edges$node_2) %in% entities$node_id)
+# from all the links, there 319122 connections to entities 
+n2a <- sum(unique(edges$node_2) %in% addresses$node_id)
+# 151043
+n2i <- sum(unique(edges$node_2) %in% inters$node_id)
+# 355
+n2o <- sum(unique(edges$node_2) %in% officers$node_id)
+# 21664
+n2 <- n2e + n2a + n2i + n2o
+```
+
+They are distributed among the types in the following manner: 
+
+Entities        |Addresses        |Intermediaries   |Officers         
+----------------|-----------------|-----------------|-----------------
+`r n2e`         |`r n2a`          |`r n2i`          |`r n2o`          
+`r 100*n2e/n2`% |`r 100*n2a/n2`%  |`r 100*n2i/n2`%  |`r 100*n2o/n2`%  
+
+In the same manner `r n2` = `r length(unique(edges$node_2))` is `r n2 == length(unique(edges$node_2))`.
+>>>>>>> 2f46b7b4ad0c76904e042e78379f0ef1a2126a02
