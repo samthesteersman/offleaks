@@ -1,6 +1,8 @@
 # offleaks
 project for social and economic networks
 
+The data source is <https://offshoreleaks.icij.org/>. &copy; International Consortium of Investigative Journalists
+
 ## Nodes explained
 * _Address_: Contact postal address as it appears in the original databases obtained by ICIJ.
 * _Offshore Entity_: A company, trust or fund created in a low-tax, offshore jurisdiction by an agent.
