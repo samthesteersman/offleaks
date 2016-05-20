@@ -46,4 +46,35 @@ Overall, that is how the process looks like:
 
 ```{r, echo = FALSE}
 ggplot(data = ent) + geom_bar(aes(x = incorporation_year)) + theme_bw()
+# ggplot(data = ent) + geom_line(aes(x = incorporation_year), stat = 'count') + theme_bw()
 ```
+
+Number of firms related to different Central-Eastern European countries.
+
+```{r, echo = FALSE}
+# countries <- unique(unlist(strsplit(levels(ent$countries), ";")))
+cee_countries <- c("Hungary", "Poland", "Romania", "Croatia",
+                   "Slovenia", "Serbia", "Czech Republic", "Ukraine",
+                   "Belarus", "Lithuania", "Latvia", "Estonia")
+for (country in cee_countries) {
+    ent$new <- grepl(country, ent$countries)
+    names(ent)[ncol(ent)] <- country
+}
+central_europe <- ent[ent$Hungary | ent$Poland | ent$Romania | ent$Croatia |
+                          ent$Slovenia | ent$Serbia | ent$`Czech Republic` |
+                          ent$Ukraine | ent$Belarus | ent$Lithuania |
+                          ent$Latvia | ent$Estonia,]
+dd <- as.matrix(central_europe[, 23:34])
+central_europe$country <- factor(dd %*% 1:ncol(dd), labels = cee_countries)
+
+table(central_europe$country)
+ggplot(data = central_europe) + geom_line(aes(x = incorporation_year, color = country), stat = 'count') + theme_bw()
+```
+
+Without Latvia:
+
+```{r, echo = FALSE}
+ggplot(data = central_europe[!central_europe$Latvia,]) + geom_line(aes(x = incorporation_year, color = country), stat = 'count') + theme_bw()
+```
+
+
