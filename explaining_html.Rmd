@@ -26,45 +26,46 @@ One would like to know how many accounts have been opened throughout years.
 
 ```{r, echo = FALSE}
 # looking at available dates of the accounts creation
-ent <- entities
-ent$incorporation_date <- as.Date(x = as.character(ent$incorporation_date), format = "%d-%b-%Y")
-ent <- ent[!is.na(ent$incorporation_date),]
-ent$incorporation_year <- as.numeric(format(ent$incorporation_date, "%Y"))
+ent_incor <- entities
+ent_incor$incorporation_date <- as.Date(x = as.character(ent_incor$incorporation_date), format = "%d-%b-%Y")
+ent_incor <- ent_incor[!is.na(ent_incor$incorporation_date),]
+ent_incor$incorporation_year <- as.numeric(format(ent_incor$incorporation_date, "%Y"))
 ```
 
-The sample size for answering this question is `r nrow(ent)`.
+The sample size for answering this question is `r nrow(ent_incor)`.
 
-The earliest opened account belongs to `r min(ent$incorporation_year)` and the latest comes from the future `r max(ent$incorporation_year)`.
+The earliest opened account belongs to `r min(ent_incor$incorporation_year)` and the latest comes from the future `r max(ent_incor$incorporation_year)`.
 
 The most fruitful years for the offshore accounts are the following:
 
 ```{r, echo = FALSE}
-head(arrange(count(ent, incorporation_year), desc(n)))
+head(arrange(count(ent_incor, incorporation_year), desc(n)))
 ```
 
 Overall, that is how the process looks like:
 
 ```{r, echo = FALSE}
-ggplot(data = ent) + geom_bar(aes(x = incorporation_year)) + theme_bw()
-# ggplot(data = ent) + geom_line(aes(x = incorporation_year), stat = 'count') + theme_bw()
+ggplot(data = ent_incor) + geom_bar(aes(x = incorporation_year)) + theme_bw()
+# ggplot(data = ent_incor) + geom_line(aes(x = incorporation_year), stat = 'count') + theme_bw()
 ```
 
-<<<<<<< HEAD
+## CEE countries counts
+
 Number of firms related to different Central-Eastern European countries.
 
 ```{r, echo = FALSE}
-# countries <- unique(unlist(strsplit(levels(ent$countries), ";")))
+# countries <- unique(unlist(strsplit(levels(ent_incor$countries), ";")))
 cee_countries <- c("Hungary", "Poland", "Romania", "Croatia",
                    "Slovenia", "Serbia", "Czech Republic", "Ukraine",
                    "Belarus", "Lithuania", "Latvia", "Estonia")
 for (country in cee_countries) {
-    ent$new <- grepl(country, ent$countries)
-    names(ent)[ncol(ent)] <- country
+    ent_incor$new <- grepl(country, ent_incor$countries)
+    names(ent_incor)[ncol(ent_incor)] <- country
 }
-central_europe <- ent[ent$Hungary | ent$Poland | ent$Romania | ent$Croatia |
-                          ent$Slovenia | ent$Serbia | ent$`Czech Republic` |
-                          ent$Ukraine | ent$Belarus | ent$Lithuania |
-                          ent$Latvia | ent$Estonia,]
+central_europe <- ent_incor[ent_incor$Hungary | ent_incor$Poland | ent_incor$Romania | ent_incor$Croatia |
+                          ent_incor$Slovenia | ent_incor$Serbia | ent_incor$`Czech Republic` |
+                          ent_incor$Ukraine | ent_incor$Belarus | ent_incor$Lithuania |
+                          ent_incor$Latvia | ent_incor$Estonia,]
 dd <- as.matrix(central_europe[, 23:34])
 central_europe$country <- factor(dd %*% 1:ncol(dd), labels = cee_countries)
 
@@ -78,8 +79,49 @@ Without Latvia:
 ggplot(data = central_europe[!central_europe$Latvia,]) + geom_line(aes(x = incorporation_year, color = country), stat = 'count') + theme_bw()
 ```
 
+## CEE countries relationships
 
-=======
+It is interesting to see how are the relationships built around the entities from these countries.
+
+```{r, echo = FALSE}
+edg_cee <- edges
+# selecting those links that point to or originate from CEE entities
+edg_cee <- edg_cee[which(edg_cee$node_1 %in% central_europe$node_id | edg_cee$node_2 %in% central_europe$node_id),]
+# getting rid of formatting in the relationship type
+edg_cee$rel_type <- tolower(edg_cee$rel_type)
+edg_cee$rel_type <- factor(edg_cee$rel_type)
+```
+
+There are `r nrow(edg_cee)` known links related to CEE countries entities.
+
+The count allocation of the nodes from origin to end is the following:
+
+```{r, echo = FALSE}
+edg_cee$origin <- numeric(nrow(edg_cee))
+edg_cee$origin[which(edg_cee$node_1 %in% entities$node_id)] <- "non-cee-entity"
+edg_cee$origin[which(edg_cee$node_1 %in% central_europe$node_id)] <- "cee-entity"
+edg_cee$origin[which(edg_cee$node_1 %in% officers$node_id)] <- "officer"   
+edg_cee$origin[which(edg_cee$node_1 %in% inters$node_id)] <- "intermediary"   
+edg_cee$origin[which(edg_cee$node_1 %in% addresses$node_id)] <- "address" 
+
+edg_cee$end <- numeric(nrow(edg_cee))
+edg_cee$end[which(edg_cee$node_2 %in% entities$node_id)] <- "non-cee-entity"
+edg_cee$end[which(edg_cee$node_2 %in% entities$node_id)] <- "cee-entity"
+edg_cee$end[which(edg_cee$node_2 %in% officers$node_id)] <- "officer"   
+edg_cee$end[which(edg_cee$node_2 %in% inters$node_id)] <- "intermediary" 
+edg_cee$end[which(edg_cee$node_2 %in% addresses$node_id)] <- "address"   
+
+table(origin = edg_cee$origin, end = edg_cee$end)
+```
+
+The relationship types involved in the entities from CEE countries from origins and ends respectivelly are: 
+
+```{r, echo = FALSE}
+table(relationship = edg_cee$rel_type, origin = edg_cee$origin)
+table(relationship = edg_cee$rel_type, end = edg_cee$end)
+```
+
+
 ## Nodes decomposed
 
 The main connections file provides `r nrow(edges)` links/edges. At both ends one can find different players.
@@ -133,4 +175,22 @@ Entities        |Addresses        |Intermediaries   |Officers
 `r 100*n2e/n2`% |`r 100*n2a/n2`%  |`r 100*n2i/n2`%  |`r 100*n2o/n2`%  
 
 In the same manner `r n2` = `r length(unique(edges$node_2))` is `r n2 == length(unique(edges$node_2))`.
->>>>>>> 2f46b7b4ad0c76904e042e78379f0ef1a2126a02
+
+### Origins and ends overall
+
+The cross tabulated origins and ends from all the edges available are presented in the table below.
+
+```{r, echo = FALSE}
+edg <- edges
+edg$origin <- numeric(nrow(edg))
+edg$origin[which(edg$node_1 %in% officers$node_id)] <- "officer"   
+edg$origin[which(edg$node_1 %in% entities$node_id)] <- "entity"   
+edg$origin[which(edg$node_1 %in% inters$node_id)] <- "intermediary"   
+edg$origin[which(edg$node_1 %in% addresses$node_id)] <- "address"   
+edg$end <- numeric(nrow(edg))
+edg$end[which(edg$node_2 %in% entities$node_id)] <- "entity"
+edg$end[which(edg$node_2 %in% addresses$node_id)] <- "address"   
+edg$end[which(edg$node_2 %in% officers$node_id)] <- "officer"   
+edg$end[which(edg$node_2 %in% inters$node_id)] <- "intermediary"   
+table(edg$origin, edg$end)
+```
