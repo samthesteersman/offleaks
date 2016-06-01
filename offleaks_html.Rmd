@@ -1,0 +1,304 @@
+---
+title: "Offleaks"
+output: html_document
+---
+
+This project for Social and Economic Networks course uses Offshore Leaks Database found here <https://offshoreleaks.icij.org/>.
+
+```{r, echo = FALSE}
+# loading files
+addresses <- read.csv(file = 'offshore_leaks_csvs-20160524/Addresses.csv')
+edges <- read.csv(file = 'offshore_leaks_csvs-20160524/all_edges.csv')
+entities <- read.csv(file = 'offshore_leaks_csvs-20160524/Entities.csv')
+inters <- read.csv(file = 'offshore_leaks_csvs-20160524/Intermediaries.csv')
+officers <- read.csv(file = 'offshore_leaks_csvs-20160524/Officers.csv')
+```
+
+```{r, include = FALSE}
+# loading libraries
+library(dplyr)
+library(ggplot2)
+library(igraph)
+```
+
+## Yearly counts development
+
+One would like to know how many accounts have been opened throughout years.
+
+```{r, echo = FALSE}
+# looking at available dates of the accounts creation
+ent_incor <- entities
+ent_incor$incorporation_date <- as.Date(x = as.character(ent_incor$incorporation_date), format = "%d-%b-%Y")
+ent_incor <- ent_incor[!is.na(ent_incor$incorporation_date),]
+ent_incor$incorporation_year <- as.numeric(format(ent_incor$incorporation_date, "%Y"))
+```
+
+The sample size for answering this question is `r nrow(ent_incor)`.
+
+The earliest opened account belongs to `r min(ent_incor$incorporation_year)` and the latest comes from the future `r max(ent_incor$incorporation_year)`.
+
+The most fruitful years for the offshore accounts are the following:
+
+```{r, echo = FALSE}
+head(arrange(count(ent_incor, incorporation_year), desc(n)))
+```
+
+Overall, that is how the process looks like:
+
+```{r, echo = FALSE}
+ggplot(data = ent_incor) + geom_bar(aes(x = incorporation_year)) + theme_bw()
+# ggplot(data = ent_incor) + geom_line(aes(x = incorporation_year), stat = 'count') + theme_bw()
+```
+
+## CEE countries counts
+
+Number of firms related to different Central-Eastern European countries.
+
+```{r, echo = FALSE}
+# countries <- unique(unlist(strsplit(levels(ent_incor$countries), ";")))
+cee_countries <- c("Hungary", "Poland", "Romania", "Croatia",
+                   "Slovenia", "Serbia", "Czech Republic", "Ukraine",
+                   "Belarus", "Lithuania", "Latvia", "Estonia")
+for (country in cee_countries) {
+    ent_incor$new <- grepl(country, ent_incor$countries)
+    names(ent_incor)[ncol(ent_incor)] <- country
+}
+central_europe <- ent_incor[ent_incor$Hungary | ent_incor$Poland | ent_incor$Romania | ent_incor$Croatia |
+                          ent_incor$Slovenia | ent_incor$Serbia | ent_incor$`Czech Republic` |
+                          ent_incor$Ukraine | ent_incor$Belarus | ent_incor$Lithuania |
+                          ent_incor$Latvia | ent_incor$Estonia,]
+dd <- as.matrix(central_europe[, 23:34])
+central_europe$country <- factor(dd %*% 1:ncol(dd), labels = cee_countries)
+
+table(central_europe$country)
+ggplot(data = central_europe) + geom_line(aes(x = incorporation_year, color = country), stat = 'count') + theme_bw()
+```
+
+Without Latvia:
+
+```{r, echo = FALSE}
+ggplot(data = central_europe[!central_europe$Latvia,]) + geom_line(aes(x = incorporation_year, color = country), stat = 'count') + theme_bw()
+```
+
+## CEE countries relationships
+
+It is interesting to see how are the relationships built around the entities from these countries.
+
+```{r, echo = FALSE}
+edg_cee <- edges
+# selecting those links that point to or originate from CEE entities
+edg_cee <- edg_cee[which(edg_cee$node_1 %in% central_europe$node_id | edg_cee$node_2 %in% central_europe$node_id),]
+# getting rid of formatting in the relationship type
+edg_cee$rel_type <- tolower(edg_cee$rel_type)
+edg_cee$rel_type <- factor(edg_cee$rel_type)
+```
+
+There are `r nrow(edg_cee)` known links related to CEE countries entities.
+
+The count allocation of the nodes from origin to end is the following:
+
+```{r, echo = FALSE}
+edg_cee$origin <- numeric(nrow(edg_cee))
+edg_cee$origin[which(edg_cee$node_1 %in% entities$node_id)] <- "non-cee-entity"
+edg_cee$origin[which(edg_cee$node_1 %in% central_europe$node_id)] <- "cee-entity"
+edg_cee$origin[which(edg_cee$node_1 %in% officers$node_id)] <- "officer"   
+edg_cee$origin[which(edg_cee$node_1 %in% inters$node_id)] <- "intermediary"   
+edg_cee$origin[which(edg_cee$node_1 %in% addresses$node_id)] <- "address" 
+
+edg_cee$end <- numeric(nrow(edg_cee))
+edg_cee$end[which(edg_cee$node_2 %in% entities$node_id)] <- "non-cee-entity"
+edg_cee$end[which(edg_cee$node_2 %in% central_europe$node_id)] <- "cee-entity"
+edg_cee$end[which(edg_cee$node_2 %in% officers$node_id)] <- "officer"   
+edg_cee$end[which(edg_cee$node_2 %in% inters$node_id)] <- "intermediary" 
+edg_cee$end[which(edg_cee$node_2 %in% addresses$node_id)] <- "address"   
+
+table(origin = edg_cee$origin, end = edg_cee$end)
+```
+
+### "registered address" relationship type
+
+When the origin node is a cee-entity, it points to either addresses or other entities.
+
+When it is a cee-entity connecting to an address, the relationship type of the nodes are `r levels(edg_cee$rel_type)[5]`. Do the countries of the cee-entity correspond to the address specified?
+
+The mean of matches of the cee-entity and the address countries is:
+
+```{r echo=FALSE}
+mean(as.character(addresses$countries[match(edg_cee$node_2[edg_cee$rel_type == "registered address"], addresses$node_id)]) == (central_europe$country[match(edg_cee$node_1[edg_cee$rel_type == "registered address"], central_europe$node_id)]))
+```
+
+Then these links of type `"cee-entity"-"registered address"-"address"` present no interest for the further study.
+
+```{r echo=FALSE}
+# getting rid of address links
+edg_cee <- edg_cee[edg_cee$rel_type!="registered address",]
+edg_cee$rel_type <- factor(edg_cee$rel_type)
+```
+
+### "same name and registration date as" relationship type
+
+Now the amount of links is reduced to `r nrow(edg_cee)`.
+
+There are some entites linked to other entites through `r levels(edg_cee$rel_type)[5]`.
+
+```{r echo=FALSE}
+print(edg_cee[which(edg_cee$rel_type == levels(edg_cee$rel_type)[5]),c(4,1,2,5,3)])
+```
+
+The assumed way to deal with duplicates in this case is to bring in the edges connected to the found non-cee-entites and replace all instances of `node_2` as `node_1`. 
+
+```{r echo=FALSE}
+n_cee_or <- edg_cee$node_1[which(edg_cee$origin == "non-cee-entity")]
+n_cee_end <- edg_cee$node_2[which(edg_cee$end == "non-cee-entity")]
+
+repls <- c(n_cee_or, n_cee_end, edg_cee$node_2[which(edg_cee$origin=="cee-entity"&edg_cee$end=="cee-entity")])
+snrd <- c(edg_cee$node_2[which(edg_cee$origin == "non-cee-entity")], edg_cee$node_1[which(edg_cee$end == "non-cee-entity")], edg_cee$node_1[which(edg_cee$origin=="cee-entity"&edg_cee$end=="cee-entity")])
+
+edg <- rbind(edg_cee[,1:3], edges[which(edges$node_2 %in% n_cee_or),], edges[which(edges$node_2 %in% n_cee_end),])
+
+for (i in 1:length(repls)) {
+  edg$node_2[edg$node_2 == repls[i]] <- snrd[i]
+}
+
+edg$rel_type <- tolower(edg$rel_type)
+edg <- edg[edg$rel_type!="same name and registration date as",]
+edg$rel_type <- factor(edg$rel_type)
+
+edg <- distinct(edg)
+```
+
+The treatment leads to `r nrow(edg)` distinct link observations.
+
+```{r echo=FALSE}
+edg$origin <- numeric(nrow(edg))
+edg$origin[which(edg$node_1 %in% entities$node_id)] <- "non-cee-entity"
+edg$origin[which(edg$node_1 %in% central_europe$node_id)] <- "cee-entity"
+edg$origin[which(edg$node_1 %in% officers$node_id)] <- "officer"   
+edg$origin[which(edg$node_1 %in% inters$node_id)] <- "intermediary"   
+edg$origin[which(edg$node_1 %in% addresses$node_id)] <- "address" 
+
+edg$end <- numeric(nrow(edg))
+edg$end[which(edg$node_2 %in% entities$node_id)] <- "non-cee-entity"
+edg$end[which(edg$node_2 %in% central_europe$node_id)] <- "cee-entity"
+edg$end[which(edg$node_2 %in% officers$node_id)] <- "officer"   
+edg$end[which(edg$node_2 %in% inters$node_id)] <- "intermediary" 
+edg$end[which(edg$node_2 %in% addresses$node_id)] <- "address"   
+```
+
+Now the relationships between the nodes related to CEE countries are as follows: 
+
+```{r, echo = FALSE}
+table(relationship = edg$rel_type, origin = edg$origin)
+```
+
+## Constructing the network
+
+It is possible now to construct the network.
+
+```{r echo=FALSE}
+links <- edg[,c(1,3,2)]
+nodes <- data.frame(node_id = unique(c(edg$node_1, edg$node_2)))
+
+nodes$type <- FALSE
+nodes$type[nodes$node_id %in% central_europe$node_id] <- TRUE
+
+nodes$t <- NA
+nodes$t[which(nodes$node_id %in% central_europe$node_id)] <- "cee-entity"
+nodes$t[which(nodes$node_id %in% officers$node_id)] <- "officer"  
+nodes$t[which(nodes$node_id %in% inters$node_id)] <- "intermediary"  
+
+nodes$country <- NA
+nodes$country[nodes$t=="cee-entity"] <- as.character(central_europe$country[match(nodes$node_id[nodes$t=="cee-entity"], central_europe[,c("node_id")])])
+nodes$country[nodes$t=="officer"] <- as.character(officers$countries[match(nodes$node_id[nodes$t=="officer"], officers[,c("node_id")])])
+nodes$country[nodes$t=="intermediary"] <- as.character(inters$countries[match(nodes$node_id[nodes$t=="intermediary"], inters[,c("node_id")])])
+nodes$country[which(nodes$country == "" | nodes$country == "Not identified")] <- NA
+table(nodes$country, useNA="ifany")
+
+nodes$year <- NA
+nodes$year[nodes$t=="cee-entity"] <- central_europe$incorporation_year[match(nodes$node_id[nodes$t=="cee-entity"], central_europe[,c("node_id")])]
+
+g <- graph.data.frame(d=links, vertices=nodes, directed=FALSE)
+
+```
+
+So far by construction the network is bipartite: `r is.bipartite(g)`.
+
+Below is the first attempt to plot the resulting network.
+
+```{r echo=FALSE}
+plot(g, vertex.size=3, vertex.label=NA, edge.arrow.size=0, layout=layout.bipartite)
+```
+
+
+## Nodes decomposed
+
+The main connections file provides `r nrow(edges)` links/edges. At both ends one can find different players.
+
+### Origin nodes
+
+There are `r length(unique(edges$node_1))` unique origin nodes/vertices.
+
+```{r, echo = FALSE}
+n1e <- sum(unique(edges$node_1) %in% entities$node_id)
+# from all the links, 93572 entities connect to something
+n1a <- sum(unique(edges$node_1) %in% addresses$node_id)
+# 960
+n1i <- sum(unique(edges$node_1) %in% inters$node_id)
+# 23600
+n1o <- sum(unique(edges$node_1) %in% officers$node_id)
+# 345475
+n1 <- n1e + n1a + n1i + n1o
+```
+
+They are distributed among the types in the following manner: 
+
+Entities        |Addresses        |Intermediaries   |Officers         
+----------------|-----------------|-----------------|-----------------
+`r n1e`         |`r n1a`          |`r n1i`          |`r n1o`          
+`r 100*n1e/n1`% |`r 100*n1a/n1`%  |`r 100*n1i/n1`%  |`r 100*n1o/n1`%  
+
+A note. The decomposition does not sum up to the number of unique entries. `r n1` = `r length(unique(edges$node_1))` is `r n1 == length(unique(edges$node_1))`.
+
+### Receiving nodes
+
+Looking at the unique receiving nodes/vertices, one can find that there are `r length(unique(edges$node_2))` of them.
+
+```{r, echo = FALSE}
+n2e <- sum(unique(edges$node_2) %in% entities$node_id)
+# from all the links, there 319122 connections to entities 
+n2a <- sum(unique(edges$node_2) %in% addresses$node_id)
+# 151043
+n2i <- sum(unique(edges$node_2) %in% inters$node_id)
+# 355
+n2o <- sum(unique(edges$node_2) %in% officers$node_id)
+# 21664
+n2 <- n2e + n2a + n2i + n2o
+```
+
+They are distributed among the types in the following manner: 
+
+Entities        |Addresses        |Intermediaries   |Officers         
+----------------|-----------------|-----------------|-----------------
+`r n2e`         |`r n2a`          |`r n2i`          |`r n2o`          
+`r 100*n2e/n2`% |`r 100*n2a/n2`%  |`r 100*n2i/n2`%  |`r 100*n2o/n2`%  
+
+In the same manner `r n2` = `r length(unique(edges$node_2))` is `r n2 == length(unique(edges$node_2))`.
+
+### Origins and ends overall
+
+The cross tabulated origins and ends from all the edges available are presented in the table below.
+
+```{r, echo = FALSE}
+edg <- edges
+edg$origin <- numeric(nrow(edg))
+edg$origin[which(edg$node_1 %in% officers$node_id)] <- "officer"   
+edg$origin[which(edg$node_1 %in% entities$node_id)] <- "entity"   
+edg$origin[which(edg$node_1 %in% inters$node_id)] <- "intermediary"   
+edg$origin[which(edg$node_1 %in% addresses$node_id)] <- "address"   
+edg$end <- numeric(nrow(edg))
+edg$end[which(edg$node_2 %in% entities$node_id)] <- "entity"
+edg$end[which(edg$node_2 %in% addresses$node_id)] <- "address"   
+edg$end[which(edg$node_2 %in% officers$node_id)] <- "officer"   
+edg$end[which(edg$node_2 %in% inters$node_id)] <- "intermediary"   
+table(edg$origin, edg$end)
+```
