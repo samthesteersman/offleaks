@@ -1,0 +1,24 @@
+---
+title: "Report"
+author: "Kseniya Bout"
+date: "3 de junio de 2016"
+output: html_document
+---
+
+# Overview
+
+The report follows the purpose of providing the theoretical support for the upcoming project for the Social and Economic Networks course that explores the network properties of the [Offshore Leaks Database](https://offshoreleaks.icij.org/).
+
+# Discussion
+
+The field of economics often addresses the concept of *agglomeration* which states that there exist benefits for the members of a set of objects located closely. In other words, geographical proximity fosters activity of the agents, eg. cities grow this way, illegal businesses prosper by being nearby.
+
+At the same time, *network effects* or *networks externalities* relate more to the existence of links between objects that cause certain effects for the network: an additional node value for the network depends on the current network size and structure, Facebook becomes more attractive as more users join, offshore businesses change their value as their structure develops.
+
+The paper by Meetere, Neal and Derudder [1] raises the issue of inconsistent approaches when dealing with agglomeration and network externalities within the same research topics. The authors tabulate agglomeration and network solutions according to the economic perspectives. Hopefully, this produces more developed studies in the future.
+
+However, there is an additional point to the paper. For empirical illustration of the differences bewteen agglomeration and network externalitites, the authors use a bipartite graph and introduce connectivities within the two sets of nodes. Then, perhaps it is possible to relate the method to the OLD.
+
+# References
+
+1. Meeteren, M., Neal, Z., & Derudder, B. (2016). [Disentangling agglomeration and network externalities: A conceptual typology](http://onlinelibrary.wiley.com/doi/10.1111/pirs.12214/pdf). Papers in Regional Science.
