@@ -1,24 +1,141 @@
 ---
-title: "Report"
+title: "Social Network Analysis for Bipartite Graphs"
 author: "Kseniya Bout"
 date: "3 de junio de 2016"
 output: html_document
 ---
 
+```{r include=FALSE}
+# loading libraries
+library(bipartite)
+library(lpbrim)
+# loading files
+addresses <- read.csv(file = 'offshore_leaks_csvs-20160524/Addresses.csv')
+edges <- read.csv(file = 'offshore_leaks_csvs-20160524/all_edges.csv')
+entities <- read.csv(file = 'offshore_leaks_csvs-20160524/Entities.csv')
+inters <- read.csv(file = 'offshore_leaks_csvs-20160524/Intermediaries.csv')
+officers <- read.csv(file = 'offshore_leaks_csvs-20160524/Officers.csv')
+```
+
 # Overview
 
-The report follows the purpose of providing the theoretical support for the upcoming project for the Social and Economic Networks course that explores the network properties of the [Offshore Leaks Database](https://offshoreleaks.icij.org/).
+The report follows the purpose of providing the theoretical support for the upcoming project for the Social and Economic Networks course that explores the network properties of the [Offshore Leaks Database](https://offshoreleaks.icij.org/). The nature of the data suggests at least a bipartite graph structure, where the two distinct sets of nodes are intermediaries/officers and entities. The task then becomes to find the appropriate toolkit for such analysis. The points of interest for this report are as follows: nestedness, modularity, community detection, agglomeration and network externalities.
 
 # Discussion
+
+## Nestedness
+
+The concept of nestedness is mostly used for uncovering the structure of ecological systems. Its simple example from this field for nodes divided between spieces and land areas, is the case of perfect nestedness, when from the set of spieces connceted to mainland, the next closest island contains its subset and then the next island is a sub-subset of the mainland spieces set, etc.
+
+With relation to OLD, it is interesting to identify the hierarcial structure of officers/intermediaries and entites or prove its absence as the nature of offshore account business structure could possibly be rather flat.
+
+There are two main metrics for nestedness evaluation: temperature and NODF. [1]
+
+### Temperature
+
+This metric is constructed by sorting rows and columns in the way that the majority of interactions stay above the isoline, the line between zones of a prefectly nested matrix of the same size and connectance. Firstly introduced by Atmar and Patterson [2], temperature curently is mostly calculated by the BINMATNEST method of Rodríguez‐Gironés and Santamaría[3].
+
+In R it is implemented with `nested(web, method = "binmatnest2", rescale=FALSE, normalised=TRUE)` function from `bipartite` package.
+
+On a small example, a subset of OLD data, of officers connecting to Latvian entities, the empirical results are as follows:
+
+```{r echo=FALSE}
+cee_countries <- c("Latvia")
+for (country in cee_countries) {
+    entities$new <- grepl(country, entities$countries)
+    names(entities)[ncol(entities)] <- country
+}
+latvia <- entities[entities$Latvia,]
+dd <- as.matrix(latvia[, 22])
+latvia$country <- factor(dd %*% 1:ncol(dd), labels = cee_countries)
+
+edg <- edges[edges$node_2 %in% latvia$node_id & edges$node_1 %in% officers$node_id,]
+edg$rel_type <-tolower(edg$rel_type)
+edg$rel_type <-factor(edg$rel_type)
+
+m <- matrix(data=numeric(length(unique(edg$node_1))*length(unique(edg$node_2))),ncol=length(unique(edg$node_1)))
+
+colnames(m) <- unique(edg$node_1)
+rownames(m) <- unique(edg$node_2)
+
+for (i in 1:nrow(edg)) {
+  a <- which(colnames(m) == edg$node_1[i])
+  b <- which(rownames(m) == edg$node_2[i])
+  m[b,a] <- m[b,a]+1
+}
+
+(temp <- nested(web=t(m),method="binmatnest2"))
+
+```
+
+The temperature of the network is only `r signif(temp,1)` degrees higher than a matrix opposite to a perfectly nested matrix. The structure of officers connecting to Latvian entities is flat indeed.
+
+### NODF
+
+The NODF nestedness metric is based on the extent to which a network exhibits decreasing fill and paired overlap defined by Almeida‐Neto et al [4]. Values of 0 indicate non-nestedness, those of 100 perfect nesting.
+
+In R it is implemented with `nested(web, method = "NODF", rescale=FALSE, normalised=TRUE)` function from `bipartite` package.
+
+On the same example, the metric value is:
+
+```{r echo=FALSE}
+(nodf <- nested(web=m,method="NODF"))
+```
+
+Overall, this supports the idea of officers connected to Latvian entites being not hierarcally structured at all.
+
+## Modularity
+
+Modularity indicates the presence of dense clusters of nodes with many overlapping interactions embedded within the network. Clusters are considered dense when they have high internal edge density relative to the expected edge density in the null model. These dense clusters are termed modules. Identifying modules and estimating the associated modularity require a partitioning of the network.
+
+Modularity for a bipartite network is defined as:
+
+$$Q=\frac{1}{|E|}\sum (B_{ij}-\frac{k_{i}d_{j}}{|E|})\delta(g_{i},h_{j})$$
+
+where $|E|$ is the number of links in the network, $B_{ij}$ is the adjacency matix, $k_{i}$ and $d_{j}$ are the degrees of the nodes $i$ and $j$ respectively, $g_{i}$ and $h_{j}$ are the module indices of nodes $i$ and $j$.
+
+And modularity algorithms' task is the maximization of the modularity function through partitioning of the network. The standard maximization approach is the Bipartite Recursively Induced Modules (BRIM) algorithm by Barber [5].
+
+In R the most definite functiom for BRIM algorithm is in `lpbrim` package.
+
+The output of the function is the list of the nodes assigned to a community, the modularity function value and the number of communities. 
+
+```{r echo=FALSE}
+brim <- bBRIM(m)
+str(brim$S)
+brim$Q
+```
+
+In the case of Latvian entities and officers, there are `r brim$c` communitites maximizing the modularity of the network. It is possible to reference the communities list to the observed attributes of the nodes such as the year of incorporation and dormancy, the jurisdiction for the entities, and the registered country for the officers.
+
+## Community detection
+
+There are two approaches to community detection problem for bipartite graphs. One of the methods begins with creating projection graphs from the initial network and then implementing community detection algorithms within each of them. The other approach searches for community structures in the initial graph as demonstrated by BRIM algorithm.
+
+Cui and Wang [6]
+
+## Agglomeration and network externalities
 
 The field of economics often addresses the concept of *agglomeration* which states that there exist benefits for the members of a set of objects located closely. In other words, geographical proximity fosters activity of the agents, eg. cities grow this way, illegal businesses prosper by being nearby.
 
 At the same time, *network effects* or *networks externalities* relate more to the existence of links between objects that cause certain effects for the network: an additional node value for the network depends on the current network size and structure, Facebook becomes more attractive as more users join, offshore businesses change their value as their structure develops.
 
-The paper by Meetere, Neal and Derudder [1] raises the issue of inconsistent approaches when dealing with agglomeration and network externalities within the same research topics. The authors tabulate agglomeration and network solutions according to the economic perspectives. Hopefully, this produces more developed studies in the future.
+The paper by Meetere, Neal and Derudder [7] raises the issue of inconsistent approaches when dealing with agglomeration and network externalities within the same research topics. The authors tabulate agglomeration and network solutions according to the economic perspectives. Hopefully, this produces more developed studies in the future.
 
 However, there is an additional point to the paper. For empirical illustration of the differences bewteen agglomeration and network externalitites, the authors use a bipartite graph and introduce connectivities within the two sets of nodes. Then, perhaps it is possible to relate the method to the OLD.
 
 # References
 
-1. Meeteren, M., Neal, Z., & Derudder, B. (2016). [Disentangling agglomeration and network externalities: A conceptual typology](http://onlinelibrary.wiley.com/doi/10.1111/pirs.12214/pdf). Papers in Regional Science.
+1. Flores, C. O., Poisot, T., & Weitz, J. S. (2014). [BiMAT: a MATLAB® package to facilitate the analysis and visualization of bipartite networks. arXiv preprint](http://onlinelibrary.wiley.com/doi/10.1111/2041-210X.12458/pdf). arXiv, 1406.
+
+2. Atmar, W., & Patterson, B. D. (1993). [The measure of order and disorder in the distribution of species in fragmented habitat](http://priede.bf.lu.lv/ftp/pub/TIS/datu_analiize/Nestedness/Nestedness_raksts.htm). Oecologia, 96(3), 373-382.
+
+3. Rodríguez‐Gironés, M. A., & Santamaría, L. (2006). [A new algorithm to calculate the nestedness temperature of presence–absence matrices](https://www.researchgate.net/profile/Luis_Santamaria2/publication/230240649_A_new_algorithm_to_calculate_the_nestedness_temperature_of_presenceabsence_matrices/links/02e7e53562d7960aca000000.pdf). Journal of Biogeography, 33(5), 924-935.
+
+4. Almeida‐Neto, M., Guimaraes, P., Guimarães, P. R., Loyola, R. D., & Ulrich, W. (2008). [A consistent metric for nestedness analysis in ecological systems: reconciling concept and measurement](http://www.zoology.ubc.ca/~sunday/bdg/pdfs_bdg/2012fall/AlmeidaNeto%20etal%20Oikos%202008%20nestedness%20metric.pdf). Oikos, 117(8), 1227-1239.
+
+5. Barber, M. J. (2007). [Modularity and community detection in bipartite networks](http://arxiv.org/pdf/0707.1616.pdf). Physical Review E, 76(6), 066102.
+
+6. Cui, Y., & Wang, X. (2016). [Detecting one-mode communities in bipartite networks by bipartite clustering triangular](http://www.sciencedirect.com/science/article/pii/S0378437116002582). Physica A: Statistical Mechanics and its Applications, 457, 307-315.
+
+7. Meeteren, M., Neal, Z., & Derudder, B. (2016). [Disentangling agglomeration and network externalities: A conceptual typology](http://onlinelibrary.wiley.com/doi/10.1111/pirs.12214/pdf). Papers in Regional Science.
