@@ -25,15 +25,15 @@ The report follows the purpose of providing the theoretical support for the upco
 
 ## Nestedness
 
-The concept of nestedness is mostly used for uncovering the structure of ecological systems. Its simple example from this field for nodes divided between spieces and land areas, is the case of perfect nestedness, when from the set of spieces connceted to mainland, the next closest island contains its subset and then the next island is a sub-subset of the mainland spieces set, etc.
+The concept of nestedness is mostly used for uncovering the structure of ecological systems. Its simple example from this field for nodes divided between species and land areas, is the case of perfect nestedness, when from the set of species connected to mainland, the next closest island contains its subset and then the next island is a sub-subset of the mainland species set, etc.
 
-With relation to OLD, it is interesting to identify the hierarcial structure of officers/intermediaries and entites or prove its absence as the nature of offshore account business structure could possibly be rather flat.
+With relation to OLD, it is interesting to identify the hierarchical structure of officers/intermediaries and entities or prove its absence as the nature of offshore account business structure could possibly be rather flat.
 
 There are two main metrics for nestedness evaluation: temperature and NODF. [1]
 
 ### Temperature
 
-This metric is constructed by sorting rows and columns in the way that the majority of interactions stay above the isoline, the line between zones of a prefectly nested matrix of the same size and connectance. Firstly introduced by Atmar and Patterson [2], temperature curently is mostly calculated by the BINMATNEST method of Rodríguez‐Gironés and Santamaría[3].
+This metric is constructed by sorting rows and columns in the way that the majority of interactions stay above the isoline, the line between zones of a perfectly nested matrix of the same size and connectance. Firstly introduced by Atmar and Patterson [2], temperature currently is mostly calculated by the BINMATNEST method of Rodríguez‐Gironés and Santamaría [3].
 
 In R it is implemented with `nested(web, method = "binmatnest2", rescale=FALSE, normalised=TRUE)` function from `bipartite` package.
 
@@ -82,7 +82,7 @@ On the same example, the metric value is:
 (nodf <- nested(web=m,method="NODF"))
 ```
 
-Overall, this supports the idea of officers connected to Latvian entites being not hierarcally structured at all.
+Overall, this supports the idea of officers connected to Latvian entities being not hierarchically structured at all.
 
 ## Modularity
 
@@ -92,11 +92,11 @@ Modularity for a bipartite network is defined as:
 
 $$Q=\frac{1}{|E|}\sum (B_{ij}-\frac{k_{i}d_{j}}{|E|})\delta(g_{i},h_{j})$$
 
-where $|E|$ is the number of links in the network, $B_{ij}$ is the adjacency matix, $k_{i}$ and $d_{j}$ are the degrees of the nodes $i$ and $j$ respectively, $g_{i}$ and $h_{j}$ are the module indices of nodes $i$ and $j$.
+where $|E|$ is the number of links in the network, $B_{ij}$ is the adjacency matrix, $k_{i}$ and $d_{j}$ are the degrees of the nodes $i$ and $j$ respectively, $g_{i}$ and $h_{j}$ are the module indices of nodes $i$ and $j$.
 
 And modularity algorithms' task is the maximization of the modularity function through partitioning of the network. The standard maximization approach is the Bipartite Recursively Induced Modules (BRIM) algorithm by Barber [5].
 
-In R the most definite functiom for BRIM algorithm is in `lpbrim` package.
+In R the most definite function for BRIM algorithm is in `lpbrim` package.
 
 The output of the function is the list of the nodes assigned to a community, the modularity function value and the number of communities. 
 
@@ -106,13 +106,15 @@ str(brim$S)
 brim$Q
 ```
 
-In the case of Latvian entities and officers, there are `r brim$c` communitites maximizing the modularity of the network. It is possible to reference the communities list to the observed attributes of the nodes such as the year of incorporation and dormancy, the jurisdiction for the entities, and the registered country for the officers.
+In the case of Latvian entities and officers, there are `r brim$c` communities maximizing the modularity of the network. It is possible to reference the communities list to the observed attributes of the nodes such as the year of incorporation and dormancy, the jurisdiction for the entities, and the registered country for the officers.
 
 ## Community detection
 
 There are two approaches to community detection problem for bipartite graphs. One of the methods begins with creating projection graphs from the initial network and then implementing community detection algorithms within each of them. The other approach searches for community structures in the initial graph as demonstrated by BRIM algorithm.
 
-Cui and Wang [6]
+In the recent paper by Cui and Wang [6] a new algorithm is proposed for detecting overlapping one-mode communities from bipartite networks through the first method: after the projection graphs are constructed as two weighted one-mode networks based on the bipartite clustering triangular. The second phase of this algorithm is respectively detecting one-mode community structures from two weighted one-mode networks.
+
+The results of the algorithm are shown to outperform previous versions on a certain datasets. The caveat for the algorithm though is that its implementation is not observed in any of the well-known SNA tools. Hence, testing the algorithm on a given data becomes a complicated task.
 
 ## Agglomeration and network externalities
 
@@ -122,7 +124,7 @@ At the same time, *network effects* or *networks externalities* relate more to t
 
 The paper by Meetere, Neal and Derudder [7] raises the issue of inconsistent approaches when dealing with agglomeration and network externalities within the same research topics. The authors tabulate agglomeration and network solutions according to the economic perspectives. Hopefully, this produces more developed studies in the future.
 
-However, there is an additional point to the paper. For empirical illustration of the differences bewteen agglomeration and network externalitites, the authors use a bipartite graph and introduce connectivities within the two sets of nodes. Then, perhaps it is possible to relate the method to the OLD.
+However, there is an additional point to the paper. For empirical illustration of the differences between agglomeration and network externalitites, the authors use a bipartite graph and introduce connectivities within the two sets of nodes. Then, perhaps it is possible to relate the method to the OLD.
 
 # References
 
