@@ -1,5 +1,3 @@
-setwd("~/school/sen")
-
 # loading files
 addresses <- read.csv(file = 'offshore_leaks_csvs-20160524/Addresses.csv')
 edges <- read.csv(file = 'offshore_leaks_csvs-20160524/all_edges.csv')
@@ -129,3 +127,25 @@ people$name[people$name %in% s2$name] <- s2$name_wo_comma1[match(people$name[peo
 
 # this table suggests how many nodes one can collapse into each other
 people_names <- data.frame(sort(table(people$name), decreasing=TRUE))
+# down to 112498 names
+
+# lengths of names left
+people_names$name <- as.character(people_names$Var1)
+people_names$name_lenght <- nchar(people_names$name)
+# some are still very lengthy
+
+# collapsing the people of the same name into one node
+one_person <- people_names$name[people_names$Freq>1]
+many_nodes <- list()
+for (i in 1:length(one_person)) many_nodes[[i]] <- people$node_id[people$name == one_person[i]]
+one_country <- numeric(length(one_person))
+for (i in 1:length(one_person)) one_country[i] <- as.character(data.frame(sort(table(subset(people,node_id%in%many_nodes[[i]])$countries), decreasing=TRUE))[1,1])
+for (i in 1:length(one_person)) {
+  people[people$name==one_person[i],] <- people[people$name==one_person[i]&people$countries==one_country[i],][1,]
+}
+# there should be 112498 nodes in people rather than 137475 when with duplicates
+people <- people[!duplicated(people),]
+
+people$name_lenght <- nchar(as.character(people$name))
+
+write.csv(people, "people.csv", row.names = FALSE)
