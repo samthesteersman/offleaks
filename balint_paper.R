@@ -1,5 +1,7 @@
 setwd("/media/balint/Storage/Tanulas/Social_and_Economic_Networks/offshore/offleaks")
 
+#BE CAREFUL, SOMETIMES THIS CODE CRASHES, RUN IT LINE BY LINE
+
 library(igraph)
 library(DescTools)
 library(reshape2)
@@ -21,14 +23,13 @@ company <- c("LTD", "Ltd", "ltd",
              "LIMITE", "limite", "Limite", "LMITED", "Lmited", "LIMIT", "Limit",
              "LIMITD", "LIMTED", "Limted", "LIITED",
              "Trust", "TRUST", "trust",
-             "CORP", "corp", "Corp", "co\\.", "CO\\.",
+             "CORP", "corp", "Corp", "co\\.", "CO\\.", "& CO$", "Co\\.",
              "GROUP", "Group", "group",
              "INC", "Inc", " inc",
-             "&",
              "FOUNDATION", "Foundation", "foundation", "FUND", "Fund",
              "SOCIEDAD", "Sociedad", "sociedad",
              "gmbh", "GMBH", "Gmbh", "GmbH",
-             "s.a.", "S.A.",
+             "s.a.", "S.A.", " SA$", "SA\\.$",
              "HOLD.", "HOLDING", "Holding", "holding",
              "CAPITAL", "Capital", "capital",
              "PROPERTIES", "Properties",
@@ -38,7 +39,6 @@ company <- c("LTD", "Ltd", "ltd",
              "DEVELOPMENT", "Development",
              "SYSTEM", "System",
              "LLP",
-             " SA$", "SA\\.$",
              "SERVICES", "Services",
              "FINANC", "Financ",
              "GLOBAL", "Global",
@@ -48,23 +48,31 @@ company <- c("LTD", "Ltd", "ltd",
              "BANK ", "BANKING", "Bank ",
              "INDUST", "Indust", "Ind\\.",
              "PLC$", "Plc", "plc",
-             "S\\.L\\.", " AG$", "A\\.G", "KFT", "BHD", "Bhd", "ZRT",
+             "S\\.L\\.", " AG$", " AG ", "A\\.G", "KFT", "BHD", "Bhd", "ZRT",
              "TLD", "LP$", "L\\.P",
              "PARTNER", "Partner", "partner",
              "INTERNATIONAL", "International", "international",
              "NOMINEES", "Nominees",
-             "COMPANY", "Company", "Compania")
+             "COMPANY", "Company", "Compania", "company",
+             "Business", "BUSINESS",
+             "ASSETS", "WHEELS", "Sons")
+
 
 #select bearer shares
 bearer <- c("BEARER", "Bearer", "bearer",
             "BEARED", "BAERER", "BEAER", "EBARER",
             "PORTAD", "Portador", "portador")
+
+
 # bearer_levels <- c("", " ", "? ??", "??", "???", "??????????",
 #                    "????????????", "???????????????", ".")
 officers$type[grepl(paste(company,collapse="|"), officers$name)] <- "organization"
 officers$type[grepl(paste(bearer,collapse="|"), officers$name)] <- "bearer share"
 # officers$type[officers$name %in% bearer_levels] <- "bearer share"
 officers$type[is.na(officers$type)] <- "person"
+
+rm(bearer)
+rm(company)
 
 # Select those officers, about which we have country information.
 officers <- officers[!officers$country_codes %in% c("", "XXX"),]
@@ -135,6 +143,9 @@ g_sim_people <- bipartite.projection(g_sim, multiplicity = FALSE)[[2]]
 rm(g)
 rm(g_sim)
 rm(similar_nodes)
+rm(v)
+rm(edges_pe)
+rm(entities_p)
 
 #ADD NOMINEE RELATIONSHIP EDGES
 #select person to person edges
@@ -143,46 +154,104 @@ edges_pp <- edges[edges$node_1 %in% people$node_id & edges$node_2 %in% people$no
 edges_pp_nominee <- edges_pp[edges_pp$rel_type %in% c("Nominee Beneficial Owner of", "Nominee Director of",
                                                       "Nominee Shareholder of", "Nominee Trust Settlor of"),]
 edges_pp_nominee$rel_type <- droplevels(edges_pp_nominee$rel_type)
+
 # table(edges_pp_nominee$rel_type)
+
 #add nominee edges
 edges_pp_nominee <- edges_pp_nominee[,c(1,3)]
 g_people <- add_edges(g_people, as.vector(t(edges_pp_nominee)))
 g_sim_people <- add_edges(g_sim_people, as.vector(t(edges_pp_nominee)))
+rm(edges_pp)
+rm(edges_pp_nominee)
+rm(edges)
+rm(people)
 
 g_people_decomposed <- decompose.graph(g_people, min.vertices = 100)
 g_sim_people_decomposed <- decompose.graph(g_sim_people, min.vertices = 100)
+rm(g_people)
+rm(g_sim_people)
 
 #a function to calculate some key properties of a graph
 component_info <- function(component){
-component_nodes <- get.data.frame(component, what="vertices")
-#create separate variable for each country
-countries <- unique(unlist(strsplit(levels(as.factor(component_nodes$countries)), ";")))
-countries <- countries[order(countries)]
-countries <- countries[countries != "Not identified"]
-for (country in countries) {
-        component_nodes$new <- grepl(country, component_nodes$countries, fixed = TRUE)
-        names(component_nodes)[ncol(component_nodes)] <- country
-}
-country_counts <- colSums(as.data.frame(component_nodes[,6:ncol(component_nodes)]))
-return(list(number_of_people = nrow(component_nodes), most_frequent_country = names(which.max(country_counts)),
-            share_of_people_from_most_frequent_country = max(country_counts)/sum(country_counts), Herfindahl_index = Herfindahl(country_counts)))
+    if(is.igraph(component)){
+        component_nodes <- get.data.frame(component, what="vertices")
+    } else{
+        component_nodes <- component
+    }
+    
+    #create separate variable for each country
+    countries <- unique(unlist(strsplit(levels(as.factor(unlist(component_nodes$countries))), ";")))
+    countries <- countries[order(countries)]
+    countries <- countries[countries != "Not identified"]
+    for (country in countries) {
+            component_nodes$new <- grepl(country, component_nodes$countries, fixed = TRUE)
+            names(component_nodes)[ncol(component_nodes)] <- country
+    }
+    country_counts <- colSums(as.data.frame(component_nodes[,6:ncol(component_nodes)]))
+    if(grepl("component", names(which.max(country_counts)))){
+        most_frequent_country <- countries
+    }else{
+        most_frequent_country <- names(which.max(country_counts))
+    }
+    return(list(number_of_people = nrow(component_nodes), most_frequent_country = most_frequent_country,
+                share_of_people_from_most_frequent_country = max(country_counts)/sum(country_counts), Herfindahl_index = Herfindahl(country_counts)))
 }
 
 g_people_decomposed_stats <- as.data.frame(t(sapply(g_people_decomposed, component_info)))
 g_people_decomposed_stats <- g_people_decomposed_stats[order(unlist(g_people_decomposed_stats$number_of_people), decreasing = TRUE),]
-g_people_decomposed_stats[7,2] <- "China"
 
 g_sim_people_decomposed_stats <- as.data.frame(t(sapply(g_sim_people_decomposed, component_info)))
 g_sim_people_decomposed_stats <- g_sim_people_decomposed_stats[order(unlist(g_sim_people_decomposed_stats$number_of_people), decreasing = TRUE),]
-g_sim_people_decomposed_stats[7,2] <- "China"
+
 
 giant_component <- g_people_decomposed[[13]]
 giant_component_sim <- g_sim_people_decomposed[[1]]
 
-giant_component_decomposed <- cluster_louvain(giant_component)$membership
+rm(g_people_decomposed)
+rm(g_sim_people_decomposed)
+
+giant_component_cluster_membership <- cluster_louvain(giant_component)$membership
+giant_component_df <- get.data.frame(giant_component, "vertices")
+giant_component_decomposed <- split(giant_component_df, giant_component_cluster_membership)
+giant_component_decomposed_stats <- as.data.frame(t(sapply(giant_component_decomposed, component_info)))
+giant_component_decomposed_stats <- giant_component_decomposed_stats[order(unlist(giant_component_decomposed_stats$number_of_people), decreasing = TRUE),]
+
+giant_component_df$countries <- unlist(lapply(strsplit(giant_component_df$countries, ";"), function(l) l[[1]]))
+giant_component_df$countries <- as.factor(giant_component_df$countries)
+giant_component_country_network <- contract(giant_component, giant_component_df$countries, vertex.attr.comb = "first")
+giant_component_country_network <- simplify(giant_component_country_network, edge.attr.comb=list(weight="sum"))
+V(giant_component_country_network)$name <- get.data.frame(giant_component_country_network, "vertices")$countries
+V(giant_component_country_network)$label <- get.data.frame(giant_component_country_network, "vertices")$countries
+
+saveRDS(giant_component_country_network, "giant_component_country_network.RData")
+get.data.frame(giant_component_country_network, "edges")
+gc_country_cluster_membership <- cluster_louvain(giant_component_country_network, weights = )$membership
+gc_country_cluster_membership_df <- get.data.frame(giant_component_country_network, "vertices")
+gc_country_cluster_membership_df$community <- gc_country_cluster_membership
+gc_country_cluster_membership_df <- gc_country_cluster_membership_df[order(gc_country_cluster_membership),]
 
 
 
+
+
+
+
+a <- cluster_louvain(giant_component_country_network)
+plot(cluster_louvain(giant_component_country_network))
+plot(giant_component_country_network, a)
+giant_component_country_network$layout <- layout.kamada.kawai                                    
+V(giant_component_country_network)$color <- rainbow(3)[memberships$'Edge betweenness'+1]                
+plot(giant_component_country_network)
+
+tkplot(giant_component_country_network)
+plot.igraph(giant_component_country_network,vertex.label=V(giant_component_country_network)$name,layout=layout.fruchterman.reingold, edge.color="black",edge.width=E(giant_component_country_network)$weight)
+table(giant_component_df$countries)
+for(i in 1:62){
+    cat(i)
+    cat("\n")
+    print(table(giant_component_decomposed[[i]]$countries))
+    cat("\n")
+}
 
 sizes(cluster_louvain(giant_component))
 summary(giant_component)
@@ -203,7 +272,8 @@ c <- get.vertex.attribute(gg, "country_codes")
 table(c)
 table(get.vertex.attribute(a[[16]], "countries"))
 # bearers <- officers[officers$type == "bearer share",]
-
+# bearers$countries <- droplevels(bearers$countries)
+# table(bearers$countries)
 #select entity to entity edges
 # edges_ee <- edges[edges$node_1 %in% entities$node_id & edges$node_2 %in% entities$node_id,]
 # edges_ee$rel_type <- droplevels(edges_ee$rel_type)
